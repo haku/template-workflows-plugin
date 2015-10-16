@@ -45,9 +45,6 @@ public class TemplatesWorkflowJob extends ViewJob<TemplatesWorkflowJob, Template
 	private String templateInstanceName;
 	private TemplateWorkflowInstances templateInstances;
 
-	private static List<Job> relatedJobs;
-	private static Map<String, String> jobParameters;
-
 	public TemplatesWorkflowJob(final ItemGroup itemGroup, final String name) {
 		super(itemGroup, name);
 	}
@@ -107,6 +104,21 @@ public class TemplatesWorkflowJob extends ViewJob<TemplatesWorkflowJob, Template
 		this.templateInstanceName = req.getParameter("template.templateInstanceName");
 		String operation = req.getParameter("template.operation");
 
+		final List<Job> relatedJobs;
+		final Map<String, String> jobParameters;
+		final TemplateWorkflowInstance templateInstance = this.templateInstances.get(this.templateInstanceName);
+		if (templateInstance == null) { // New.
+			relatedJobs = getRelatedJobs(this.templateName);
+			jobParameters = getTemplateParamaters(relatedJobs);
+		}
+		else { // Update.
+			relatedJobs = getRelatedJobs(templateInstance.getTemplateName());
+			jobParameters = getTemplateParamaters(relatedJobs);
+			for (final String p : jobParameters.keySet()) {
+				jobParameters.put(p, templateInstance.getJobParameters().get(p));
+			}
+		}
+
 		// Validate on server side
 		for (Job j : relatedJobs) {
 			if (StringUtils.isBlank(req.getParameter("template." + j.getName()))) {
@@ -124,11 +136,11 @@ public class TemplatesWorkflowJob extends ViewJob<TemplatesWorkflowJob, Template
 			replacementsJobs.put(job.getName(), req.getParameter("template." + job.getName()));
 		}
 
-		this.createOrUpdate(operation, replacementsParams, replacementsJobs);
+		this.createOrUpdate(operation, replacementsParams, relatedJobs, replacementsJobs);
 		super.submit(req, rsp);
 	}
 
-	private void createOrUpdate(final String operation, final Map<String, String> replacementsParams, final Map<String, String> replacementsJobs)
+	private void createOrUpdate(final String operation, final Map<String, String> replacementsParams, final List<Job> relatedJobs, final Map<String, String> replacementsJobs)
 			throws IOException {
 		boolean isNew = false;
 		if (operation.equals("create")) {
@@ -230,9 +242,9 @@ public class TemplatesWorkflowJob extends ViewJob<TemplatesWorkflowJob, Template
 		for (TemplateWorkflowInstance instance : instances) {
 			String iname = instance.getInstanceName();
 			this.setTemplateInstanceName(iname);
-			relatedJobs = this.getRelatedJobs(instance.getTemplateName());
 			try {
-				this.createOrUpdate("update", instance.getJobParameters(), instance.getRelatedJobs());
+				final List<Job> relatedJobs = getRelatedJobs(instance.getTemplateName());
+				this.createOrUpdate("update", instance.getJobParameters(), relatedJobs, instance.getRelatedJobs());
 				updated.add(iname);
 			} catch (IOException e) {
 				notUpdated.add(iname);
@@ -471,17 +483,18 @@ public class TemplatesWorkflowJob extends ViewJob<TemplatesWorkflowJob, Template
 		TemplateWorkflowInstance templateInstance = null;
 
 		try {
+			final List<Job> relatedJobs;
+			final Map<String, String> jobParameters;
 			if (isNew) {
-				relatedJobs = this.getRelatedJobs(templateName);
-				jobParameters = this.getTemplateParamaters(relatedJobs);
+				relatedJobs = getRelatedJobs(templateName);
+				jobParameters = getTemplateParamaters(relatedJobs);
 			} else {
 				// if (!isNew) {
 				templateInstance = this.templateInstances.get(this.templateInstanceName);
 				String tname = templateInstance.getTemplateName();
-				relatedJobs = this.getRelatedJobs(tname);
-				jobParameters = this.getTemplateParamaters(relatedJobs);
+				jobParameters = getTemplateParamaters(getRelatedJobs(tname));
 
-				relatedJobs = this.getRelatedJobs(tname);
+				relatedJobs = getRelatedJobs(tname);
 				Map<String, String> previousParams = templateInstance.getJobParameters();
 				for (String p : jobParameters.keySet()) {
 					jobParameters.put(p, previousParams.get(p));
@@ -568,7 +581,7 @@ public class TemplatesWorkflowJob extends ViewJob<TemplatesWorkflowJob, Template
 		}
 	}
 
-	private List<Job> getRelatedJobs(final String templateName) {
+	private static List<Job> getRelatedJobs(final String templateName) {
 		List<Job> relatedJobs = new ArrayList<Job>();
 		List<Item> allItems = Jenkins.getInstance().getAllItems();
 		for (Item i : allItems) {
@@ -588,7 +601,7 @@ public class TemplatesWorkflowJob extends ViewJob<TemplatesWorkflowJob, Template
 		return relatedJobs;
 	}
 
-	private Map<String, String> getTemplateParamaters(final List<Job> relatedJobs) throws IOException {
+	private static Map<String, String> getTemplateParamaters(final List<Job> relatedJobs) throws IOException {
 		Pattern pattern = Pattern.compile("@@(.*?)@@");
 
 		Map<String, String> jobParameters = new HashMap<String, String>();
