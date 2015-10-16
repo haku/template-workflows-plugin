@@ -143,8 +143,11 @@ public class TemplatesWorkflowJob extends ViewJob<TemplatesWorkflowJob, Template
 		super.submit(req, rsp);
 	}
 
-	private void createOrUpdate(final String operation, final Map<String, String> replacementsParams, final List<Job> relatedJobs, final Map<String, String> replacementsJobs)
-			throws IOException {
+	private void createOrUpdate(final String operation, final Map<String, String> replacementsParams, final List<Job> relatedJobs, final Map<String, String> replacementsJobs) throws IOException {
+		for (final Job job : relatedJobs) {
+			if (StringUtils.isBlank(replacementsJobs.get(job.getName()))) throw new IllegalArgumentException("Expected to find '" + job.getName() + "' in '" + replacementsJobs + "'.");
+		}
+
 		boolean isNew = false;
 		if (operation.equals("create")) {
 			isNew = true;
@@ -164,14 +167,17 @@ public class TemplatesWorkflowJob extends ViewJob<TemplatesWorkflowJob, Template
 				jobXml = jobXml.replaceAll("@@" + key + "@@", replacement);
 			}
 
-			Boolean wasCreated = this.createOrUpdateJob(job.getName(), replacementsJobs.get(job.getName()), jobXml, isNew);
+			Boolean wasCreated = this.createOrUpdateJob(replacementsJobs.get(job.getName()), jobXml, isNew);
 			isNewJobMap.put(replacementsJobs.get(job.getName()), wasCreated);
 		}
 
 		this.addTemplateInfo(this.templateInstanceName, replacementsParams, replacementsJobs, isNewJobMap);
 	}
 
-	private Boolean createOrUpdateJob(final String jobOrigName, final String jobReplacedName, final String jobXml, final boolean isNew) throws IOException {
+	private Boolean createOrUpdateJob(final String jobReplacedName, final String jobXml, final boolean isNew) throws IOException {
+		if (StringUtils.isBlank(jobReplacedName)) throw new IllegalArgumentException("Must not be blank: jobReplacedName");
+		if (StringUtils.isBlank(jobXml)) throw new IllegalArgumentException("Must not be blank: jobXml");
+
 		InputStream is = null;
 
 		try {
@@ -195,6 +201,8 @@ public class TemplatesWorkflowJob extends ViewJob<TemplatesWorkflowJob, Template
 
 			} else {
 				replacedJob = (Job) Jenkins.getInstance().getItem(jobReplacedName);
+				if (replacedJob == null) throw new IllegalStateException("Job not found: " + jobReplacedName);
+
 				final Boolean wasDisabled = replacedJob instanceof AbstractProject ? ((AbstractProject) replacedJob).isDisabled() : null;
 				replacedJob.updateByXml(new StreamSource(is));
 				replacedJob.removeProperty(TemplateWorkflowProperty.class);
