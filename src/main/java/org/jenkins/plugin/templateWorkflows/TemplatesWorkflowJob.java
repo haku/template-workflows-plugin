@@ -192,10 +192,10 @@ public class TemplatesWorkflowJob extends ViewJob<TemplatesWorkflowJob, Template
 
 			} else {
 				replacedJob = (Job) Jenkins.getInstance().getItem(jobReplacedName);
-				final boolean wasEnabled = replacedJob instanceof AbstractProject && !((AbstractProject) replacedJob).isDisabled();
+				final Boolean wasDisabled = replacedJob instanceof AbstractProject ? ((AbstractProject) replacedJob).isDisabled() : null;
 				replacedJob.updateByXml(new StreamSource(is));
 				replacedJob.removeProperty(TemplateWorkflowProperty.class);
-				if (wasEnabled) ((AbstractProject) replacedJob).makeDisabled(false);
+				if (wasDisabled != null) ((AbstractProject) replacedJob).makeDisabled(wasDisabled);
 				replacedJob.save();
 				return null;
 			}
