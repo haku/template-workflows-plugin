@@ -98,17 +98,23 @@ public class TemplatesWorkflowJob extends ViewJob<TemplatesWorkflowJob, Template
 		return Hudson.getInstance();
 	}
 
+	private static String safeReadParam(final StaplerRequest req, final String paramName) throws FormException {
+		final String value = req.getParameter(paramName);
+		if (StringUtils.isBlank(value)) throw new FormException("Must not be blank: " + paramName, paramName);
+		return value;
+	}
+
 	@Override
 	public void submit(final StaplerRequest req, final StaplerResponse rsp) throws IOException, ServletException, FormException {
-		this.templateName = req.getParameter("template.templateName");
-		this.templateInstanceName = req.getParameter("template.templateInstanceName");
-		String operation = req.getParameter("template.operation");
+		final String operation = safeReadParam(req, "template.operation");
+		final String newTemplateName = safeReadParam(req, "template.templateName");
+		final String newTemplateInstanceName = safeReadParam(req, "template.templateInstanceName");
 
 		final List<Job> relatedJobs;
 		final Map<String, String> jobParameters;
-		final TemplateWorkflowInstance templateInstance = this.templateInstances.get(this.templateInstanceName);
+		final TemplateWorkflowInstance templateInstance = this.templateInstances.get(newTemplateInstanceName);
 		if (templateInstance == null) { // New.
-			relatedJobs = getRelatedJobs(this.templateName);
+			relatedJobs = getRelatedJobs(newTemplateName);
 			jobParameters = getTemplateParamaters(relatedJobs);
 		}
 		else { // Update.
@@ -119,22 +125,19 @@ public class TemplatesWorkflowJob extends ViewJob<TemplatesWorkflowJob, Template
 			}
 		}
 
-		// Validate on server side
-		for (Job j : relatedJobs) {
-			if (StringUtils.isBlank(req.getParameter("template." + j.getName()))) {
-				return;
-			}
+		final Map<String, String> replacementsParams = new HashMap<String, String>();
+		for (final String p : jobParameters.keySet()) {
+			replacementsParams.put(p, safeReadParam(req, "template." + p));
 		}
 
-		Map<String, String> replacementsParams = new HashMap<String, String>();
-		for (String p : jobParameters.keySet()) {
-			replacementsParams.put(p, req.getParameter("template." + p));
+		final Map<String, String> replacementsJobs = new HashMap<String, String>();
+		for (final Job job : relatedJobs) {
+			replacementsJobs.put(job.getName(), safeReadParam(req, "template." + job.getName()));
 		}
 
-		Map<String, String> replacementsJobs = new HashMap<String, String>();
-		for (Job job : relatedJobs) {
-			replacementsJobs.put(job.getName(), req.getParameter("template." + job.getName()));
-		}
+		// Now we have done lots of input validation, probably ok to commit to these.
+		this.templateName = newTemplateName;
+		this.templateInstanceName = newTemplateInstanceName;
 
 		this.createOrUpdate(operation, replacementsParams, relatedJobs, replacementsJobs);
 		super.submit(req, rsp);
