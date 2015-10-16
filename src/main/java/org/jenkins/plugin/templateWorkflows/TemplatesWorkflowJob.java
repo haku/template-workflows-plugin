@@ -143,9 +143,9 @@ public class TemplatesWorkflowJob extends ViewJob<TemplatesWorkflowJob, Template
 		super.submit(req, rsp);
 	}
 
-	private void createOrUpdate(final String operation, final Map<String, String> replacementsParams, final List<Job> relatedJobs, final Map<String, String> replacementsJobs) throws IOException {
+	private void createOrUpdate(final String operation, final Map<String, String> replacementsParams, final List<Job> relatedJobs, final Map<String, String> replacementsJobs) throws IOException, FormException {
 		for (final Job job : relatedJobs) {
-			if (StringUtils.isBlank(replacementsJobs.get(job.getName()))) throw new IllegalArgumentException("Expected to find '" + job.getName() + "' in '" + replacementsJobs + "'.");
+			if (StringUtils.isBlank(replacementsJobs.get(job.getName()))) throw new FormException("Expected to find '" + job.getName() + "' in '" + replacementsJobs + "'.", "");
 		}
 
 		boolean isNew = false;
@@ -174,9 +174,9 @@ public class TemplatesWorkflowJob extends ViewJob<TemplatesWorkflowJob, Template
 		this.addTemplateInfo(this.templateInstanceName, replacementsParams, replacementsJobs, isNewJobMap);
 	}
 
-	private Boolean createOrUpdateJob(final String jobReplacedName, final String jobXml, final boolean isNew) throws IOException {
-		if (StringUtils.isBlank(jobReplacedName)) throw new IllegalArgumentException("Must not be blank: jobReplacedName");
-		if (StringUtils.isBlank(jobXml)) throw new IllegalArgumentException("Must not be blank: jobXml");
+	private Boolean createOrUpdateJob(final String jobReplacedName, final String jobXml, final boolean isNew) throws IOException, FormException {
+		if (StringUtils.isBlank(jobReplacedName)) throw new FormException("Must not be blank: jobReplacedName", "");
+		if (StringUtils.isBlank(jobXml)) throw new FormException("Must not be blank: jobXml", "");
 
 		InputStream is = null;
 
@@ -201,7 +201,7 @@ public class TemplatesWorkflowJob extends ViewJob<TemplatesWorkflowJob, Template
 
 			} else {
 				replacedJob = (Job) Jenkins.getInstance().getItem(jobReplacedName);
-				if (replacedJob == null) throw new IllegalStateException("Job not found: " + jobReplacedName);
+				if (replacedJob == null) throw new FormException("Job not found: " + jobReplacedName, "");
 
 				final Boolean wasDisabled = replacedJob instanceof AbstractProject ? ((AbstractProject) replacedJob).isDisabled() : null;
 				replacedJob.updateByXml(new StreamSource(is));
@@ -244,7 +244,7 @@ public class TemplatesWorkflowJob extends ViewJob<TemplatesWorkflowJob, Template
 	}
 
 	@JavaScriptMethod
-	public JSONObject updateAll() {
+	public JSONObject updateAll() throws FormException {
 		StringBuilder sb = new StringBuilder();
 		JSONObject ret = new JSONObject();
 
