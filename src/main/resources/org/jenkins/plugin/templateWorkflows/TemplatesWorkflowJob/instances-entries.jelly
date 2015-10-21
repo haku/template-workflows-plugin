@@ -32,10 +32,14 @@
   <script>
       function updateAll() {
     	var foo = <st:bind value="${it}"/>
+    	document.getElementById('msg').innerHTML = "<h1>Updating all, please wait...</h1>";
     	foo.updateAll(function(t) {
     		var res = t.responseObject();
     		if (res.result == true) {
       			document.getElementById('msg').innerHTML = t.responseObject().msg;
+    		}
+    		else {
+    			document.getElementById('msg').innerHTML = "Updating all failed: " + t;
     		}
     	})
     }
