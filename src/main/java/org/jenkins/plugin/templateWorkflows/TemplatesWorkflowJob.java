@@ -260,8 +260,8 @@ public class TemplatesWorkflowJob extends ViewJob<TemplatesWorkflowJob, Template
 				final List<Job> relatedJobs = getRelatedJobs(instance.getTemplateName());
 				this.createOrUpdate("update", instance.getJobParameters(), relatedJobs, instance.getRelatedJobs());
 				updated.add(iname);
-			} catch (IOException e) {
-				notUpdated.add(iname);
+			} catch (Exception e) {
+				notUpdated.add(iname + " (" + e.toString() + ")");
 			}
 		}
 
