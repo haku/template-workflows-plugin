@@ -112,7 +112,7 @@ public class TemplatesWorkflowJob extends ViewJob<TemplatesWorkflowJob, Template
 
 		final List<Job> relatedJobs;
 		final Map<String, String> jobParameters;
-		final TemplateWorkflowInstance templateInstance = this.templateInstances.get(newTemplateInstanceName);
+		final TemplateWorkflowInstance templateInstance = this.templateInstances != null ? this.templateInstances.get(newTemplateInstanceName) : null;
 		if (templateInstance == null) { // New.
 			relatedJobs = getRelatedJobs(newTemplateName);
 			jobParameters = getTemplateParamaters(relatedJobs);
