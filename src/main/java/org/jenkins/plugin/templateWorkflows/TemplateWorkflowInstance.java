@@ -1,7 +1,7 @@
 package org.jenkins.plugin.templateWorkflows;
 
-import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 import org.kohsuke.stapler.export.Exported;
 import org.kohsuke.stapler.export.ExportedBean;
@@ -20,8 +20,8 @@ public class TemplateWorkflowInstance implements Comparable<TemplateWorkflowInst
 		this.templateName = templateName;
 		this.instanceName = instanceName;
 		this.isNewJobMap = isNewJobMap;
-		this.jobParameters = new HashMap<String, String>();
-		this.relatedJobs = new HashMap<String, String>();
+		this.jobParameters = new ConcurrentHashMap<String, String>();
+		this.relatedJobs = new ConcurrentHashMap<String, String>();
 	}
 
 	@Exported

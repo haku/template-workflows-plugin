@@ -5,9 +5,9 @@ import hudson.model.JobProperty;
 import hudson.model.JobPropertyDescriptor;
 
 import java.util.Collection;
-import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 
 import net.sf.json.JSONObject;
 
@@ -33,7 +33,7 @@ public class TemplateWorkflowInstances extends JobProperty<TemplatesWorkflowJob>
 	}
 
 	public TemplateWorkflowInstances() {
-		instances = new HashMap<String, TemplateWorkflowInstance>();
+		instances = new ConcurrentHashMap<String, TemplateWorkflowInstance>();
 	}
 
 	public TemplateWorkflowInstance get(String instanceName) {
