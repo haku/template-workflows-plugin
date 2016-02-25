@@ -24,6 +24,9 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.locks.Lock;
+import java.util.concurrent.locks.ReentrantLock;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -41,12 +44,31 @@ import org.kohsuke.stapler.bind.JavaScriptMethod;
 
 public class TemplatesWorkflowJob extends ViewJob<TemplatesWorkflowJob, TemplateswWorkflowRun> implements TopLevelItem {
 
+	/**
+	 * I would love for this to not be a static.
+	 * But what ever powers @JavaScriptMethod does somehow bypasses object instantiation to call object methods.
+	 * Grumble grumble.
+	 */
+	private static final Lock LOCK = new ReentrantLock(true);
+
 	private String templateName;
 	private String templateInstanceName;
 	private TemplateWorkflowInstances templateInstances;
 
 	public TemplatesWorkflowJob(final ItemGroup itemGroup, final String name) {
 		super(itemGroup, name);
+	}
+
+	private void tryLock() {
+		try {
+			if (LOCK.tryLock(5, TimeUnit.SECONDS)) return;
+		}
+		catch (final InterruptedException e) {/* do not care. */}
+		throw new IllegalStateException("Could not aquire lock within 5 seconds.  Another operation is in progress.");
+	}
+
+	private void unlock() {
+		LOCK.unlock();
 	}
 
 	public String getTemplateName() {
@@ -106,6 +128,16 @@ public class TemplatesWorkflowJob extends ViewJob<TemplatesWorkflowJob, Template
 
 	@Override
 	public void submit(final StaplerRequest req, final StaplerResponse rsp) throws IOException, ServletException, FormException {
+		tryLock();
+		try {
+			submitWithLock(req, rsp);
+		}
+		finally {
+			unlock();
+		}
+	}
+
+	private void submitWithLock(final StaplerRequest req, final StaplerResponse rsp) throws IOException, ServletException, FormException {
 		final String operation = safeReadParam(req, "template.operation");
 		final String newTemplateName = safeReadParam(req, "template.templateName");
 		final String newTemplateInstanceName = safeReadParam(req, "template.templateInstanceName");
@@ -242,9 +274,19 @@ public class TemplatesWorkflowJob extends ViewJob<TemplatesWorkflowJob, Template
 			return new TemplatesWorkflowJob(Hudson.getInstance(), paramString);
 		}
 	}
-
+	
 	@JavaScriptMethod
 	public JSONObject updateAll() throws FormException {
+		tryLock();
+		try {
+			return updateAllWithLock();
+		}
+		finally {
+			unlock();
+		}
+	}
+
+	private JSONObject updateAllWithLock() throws FormException {
 		StringBuilder sb = new StringBuilder();
 		JSONObject ret = new JSONObject();
 
@@ -288,14 +330,30 @@ public class TemplatesWorkflowJob extends ViewJob<TemplatesWorkflowJob, Template
 
 	@JavaScriptMethod
 	public JSONObject setTemplateInstanceName(final String instanceName) {
-		this.templateInstanceName = instanceName;
-		JSONObject ret = new JSONObject();
-		ret.put("result", true);
-		return ret;
+		tryLock();
+		try {
+			this.templateInstanceName = instanceName;
+			final JSONObject ret = new JSONObject();
+			ret.put("result", true);
+			return ret;
+		}
+		finally {
+			unlock();
+		}
 	}
 
 	@JavaScriptMethod
 	public JSONObject executeWorkflow(final String workflowName) throws IOException, InterruptedException {
+		tryLock();
+		try {
+			return executeWorkflowWithLock(workflowName);
+		}
+		finally {
+			unlock();
+		}
+	}
+
+	private JSONObject executeWorkflowWithLock(final String workflowName) throws IOException, InterruptedException {
 		boolean result = false;
 		String msg = "Starting Job/s not Defined for Workflow '" + workflowName + "'!";
 		String jobs = "";
@@ -332,7 +390,16 @@ public class TemplatesWorkflowJob extends ViewJob<TemplatesWorkflowJob, Template
 
 	@JavaScriptMethod
 	public JSONObject deleteInstance(final String instanceName) throws IOException, InterruptedException {
+		tryLock();
+		try {
+			return deleteInstanceWithLock(instanceName);
+		}
+		finally {
+			unlock();
+		}
+	}
 
+	private JSONObject deleteInstanceWithLock(final String instanceName) throws IOException, InterruptedException {
 		boolean result = true;
 		String msg = "";
 		TemplateWorkflowInstance templateInstance = this.templateInstances.get(instanceName);
@@ -476,7 +543,16 @@ public class TemplatesWorkflowJob extends ViewJob<TemplatesWorkflowJob, Template
 
 	@JavaScriptMethod
 	public JSONObject refresh(final String templateName) {
+		tryLock();
+		try {
+			return refreshWithLock(templateName);
+		}
+		finally {
+			unlock();
+		}
+	}
 
+	private JSONObject refreshWithLock(final String templateName) {
 		JSONObject ret = new JSONObject();
 
 		// on create
